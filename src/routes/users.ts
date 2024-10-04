@@ -2,10 +2,9 @@ import { FastifyInstance } from 'fastify'
 import { knex } from '../database'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
-import dayjs from 'dayjs'
 
 export async function usersRoutes(app: FastifyInstance) {
-  app.get('/:id/metrics', async (req, reply) => {
+  app.get('/:id/metrics', async (req) => {
     const getUserParamsSchema = z.object({
       id: z.string().uuid(),
     })
@@ -13,22 +12,15 @@ export async function usersRoutes(app: FastifyInstance) {
     const { id } = getUserParamsSchema.parse(req.params)
 
     const userMeals = await knex('meals').where('user_id', id)
-
     const metrics = userMeals.reduce(
-      (acc, userMeal, index) => {
-        if (userMeal.isWithinDiet === true) {
+      (acc, userMeal) => {
+        if (!!userMeal.is_within_diet === true) {
           acc.mealsWithinDietAmount++
-          if (
-            dayjs(userMeals[index].ate_at).diff(
-              userMeals[index - 1].ate_at,
-              'days',
-            ) === 1
-          ) {
-            acc.bestStreakWithinDiet++
-          }
+          acc.bestStreakWithinDiet++
         }
-        if (userMeal.isWithinDiet === false) {
-          acc.mealsWithinDietAmount++
+        if (!!userMeal.is_within_diet === false) {
+          acc.mealsOutsideDietAmount++
+          acc.bestStreakWithinDiet = 0
         }
 
         return acc
@@ -56,12 +48,30 @@ export async function usersRoutes(app: FastifyInstance) {
 
     const { name, username } = createUserBodySchema.parse(req.body)
 
+    let sessionId = req.cookies.sessionId
+
+    if (!sessionId) {
+      sessionId = randomUUID()
+
+      reply.cookie('sessionId', sessionId, {
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      })
+    }
+
     await knex('users').insert({
       id: randomUUID(),
       name,
       username,
+      session_id: sessionId,
     })
 
     return reply.status(201).send()
+  })
+
+  app.get('/', async () => {
+    const users = await knex('users')
+
+    return { users }
   })
 }
