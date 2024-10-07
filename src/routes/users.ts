@@ -16,11 +16,15 @@ export async function usersRoutes(app: FastifyInstance) {
       (acc, userMeal) => {
         if (!!userMeal.is_within_diet === true) {
           acc.mealsWithinDietAmount++
-          acc.bestStreakWithinDiet++
+          acc.streakCount++
+
+          if (acc.streakCount > acc.bestStreakWithinDiet) {
+            acc.bestStreakWithinDiet = acc.streakCount
+          }
         }
         if (!!userMeal.is_within_diet === false) {
           acc.mealsOutsideDietAmount++
-          acc.bestStreakWithinDiet = 0
+          acc.streakCount = 0
         }
 
         return acc
@@ -28,6 +32,7 @@ export async function usersRoutes(app: FastifyInstance) {
       {
         mealsWithinDietAmount: 0,
         mealsOutsideDietAmount: 0,
+        streakCount: 0,
         bestStreakWithinDiet: 0,
       },
     )
